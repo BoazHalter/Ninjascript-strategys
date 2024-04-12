@@ -1,3 +1,5 @@
+unify all order enter / exit - short / long
+Handle rejected oredrs
 V - Add move to breakeven \
 V - increase the first and second target \
 adjust profit target according to avarage position \
