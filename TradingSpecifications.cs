@@ -6,7 +6,7 @@ public partial class TradingSpecifications
 
         switch (instrumentFullName)
         {
-            case string mes when instrumentFullName.Contains("MES"):
+                case instrumentFullName.Contains("MES"):
                 Log("Submitting Entry orders for: " + instrumentFullName);
 
                 // MES entry orders
@@ -19,8 +19,7 @@ public partial class TradingSpecifications
                 Log("Submit Long 1c share at: " + (Low[1] - TickSize * 13).ToString());
                 EnterLongLimit(1, Low[1] - TickSize * 14, "Long 1c");
                 break;
-      
-            case string mnq when instrumentFullName.Contains("MNQ"):
+            case instrumentFullName.Contains("MNQ"):
                 Log("Submitting Entry orders for: " + instrumentFullName);
 
                 // MNQ entry orders
