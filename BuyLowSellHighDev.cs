@@ -118,24 +118,20 @@ namespace NinjaTrader.NinjaScript.Strategies
 				// Resets the stop loss to the original value when all positions are closed
 				if (Position.MarketPosition == MarketPosition.Flat)
 				{
-					SetTrailStop(CalculationMode.Ticks,40);
+					//SetTrailStop(CalculationMode.Ticks,40);
 				}
 				
 				// If a long position is open, allow for stop loss modification to breakeven
 				if (Position.MarketPosition == MarketPosition.Long)
 				{
 					// Once the bid price is greater than entry price+10 ticks, set stop loss to breakeven
-					if (GetCurrentBid(0) >= Position.AveragePrice + 7 * TickSize && Position.Quantity >= 1){
-						
+					if (GetCurrentBid(0) >= Position.AveragePrice + 8 * TickSize && Position.Quantity >= 2){
+				
 						log("Selling "+ (Position.Quantity -1) + " share at: " + Position.AveragePrice.ToString());
-						
-						SetProfitTarget("Long 1 Prtial", CalculationMode.Ticks, 6);
-						SetStopLoss("Long 1 Runner",CalculationMode.Price, Position.AveragePrice + 2 * TickSize,false );
-						//ExitLongStopLimit(GetCurrentBid(0),GetCurrentBid(0),"Partial Long 1a","Long 1 Prtial");
+						ExitLongStopLimit(1,GetCurrentBid(0),GetCurrentBid(0));
 						
 					}
 				}
-	
 			}
 			catch (Exception e)
 			{
@@ -164,36 +160,23 @@ namespace NinjaTrader.NinjaScript.Strategies
 						//nq enty
 					
 						log("Submitting Long 1a quantity of 1 contract at: " + (GetCurrentBid(0) - TickSize * 2).ToString());
-						EnterLongLimit(1,GetCurrentBid(0) - TickSize * 5,  "Long 1 Prtial");
+						EnterLongLimit(1,GetCurrentBid(0) - TickSize * 3,  "Long 1 Partial");
 						
-						EnterLongLimit(1,GetCurrentBid(0) - TickSize * 5,  "Long 1 Runner");
+					    if (Position.MarketPosition == MarketPosition.Long)
+        					EnterLongLimit(1,Position.AveragePrice - 3 * TickSize,"Long 1 Runner");
+
+						//EnterLongLimit(1,GetCurrentBid(0) - TickSize * 3,  "Long 1 Runner");
 					    
 					    // Only enter if at least 10 bars has passed since our last entry
     					//if ((BarsSinceEntryExecution() > 2 || BarsSinceEntryExecution() == -1))
 						if (Position.MarketPosition == MarketPosition.Long)
-        					EnterLongLimit(2,Position.AveragePrice - 16 * TickSize,"Long Market 1ap");
+        					EnterLongLimit(2,Position.AveragePrice - 32 * TickSize,"Long Market 1ap");
 
 						// Only enter if at least 10 bars has passed since our last entry
     					//if ((BarsSinceEntryExecution() > 4 || BarsSinceEntryExecution() == -1))
 						if (Position.MarketPosition == MarketPosition.Long)
-        					EnterLongLimit(3,Position.AveragePrice - 32 * TickSize,"Long Market 2ap");
+        					EnterLongLimit(3,Position.AveragePrice - 46 * TickSize,"Long Market 2ap");
 						
-					
-//						log("Submitting Long 1ap quantity of 1 contract at: " + (GetCurrentBid(0) - TickSize * 4).ToString());
-//						EnterLongLimit(1,GetCurrentBid(0) - TickSize * 6,  "Long 1ap");
-			
-//						ExitLongStopLimit(1,Position.AveragePrice + 8 * TickSize,Position.AveragePrice + 8 * TickSize,"Long 1a partial","Long 1ap");
-//						SetProfitTarget("Long 1ap", CalculationMode.Ticks, 12);
-//						log("Submitting Long 1b quantity of 1 contract at: " + (Low[1] - TickSize * 13).ToString());
-//						EnterLongLimit(1, Low[1] - TickSize * 25 , "Long 1b");
-				
-//						log("Submitting Long 1c quantity of 1 contract at: " + (Low[1] - TickSize * 18).ToString());
-//						EnterLongLimit(1, Low[0] - TickSize * 69, "Long 1c");
-//						log(System.Reflection.MethodBase.GetCurrentMethod().Name);
-					
-//					if (stopLossOrder == null)
-//						log((Position.Quantity).ToString() +" "+(Position.AveragePrice - 30 * TickSize).ToString());
-//    					//stopLossOrder = ExitLongStopMarket(Position.Quantity,Position.AveragePrice - 30 * TickSize);
 				}	
 			}
 			if(Instrument.FullName.ToString().Contains("ES")){
