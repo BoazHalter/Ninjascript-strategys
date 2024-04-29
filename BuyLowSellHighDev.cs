@@ -78,8 +78,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 			else if (State == State.Configure)
 			{
 				IsEnabled = true;
-				//SetTrailStop(CalculationMode.Ticks,40);
+				
 
+			}
+			 
+			// information related to market data is not available until at least State.DataLoaded
+			else if (State == State.DataLoaded)
+			{
+			 
 			}
 		}
 		
@@ -87,67 +93,50 @@ namespace NinjaTrader.NinjaScript.Strategies
 		{
 			if (State == State.Historical)
     		  return;
-			
-//			if(Historical)
-//			  return;		
-			
+
 			if (CurrentBar < BarsRequiredToTrade)
 	          return;
 			
-			try{
+					
+			CloseErrorWindows();
 			
-				CloseErrorWindows();
+			plTotalStatus = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency, Close[0]) + SystemPerformance.AllTrades.TradesPerformance.NetProfit ;
+			plUnrealized = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency, Close[0]);
+			log("Real Time Trades LosingTrades: " + SystemPerformance.RealTimeTrades.LosingTrades.TradesCount  );
+			log("Current Strategy profit: " + plTotalStatus);
+			log("Open Position: " + plUnrealized);
+			log("Position.AveragePrice: "+ Position.AveragePrice);
+			
 				
-				plTotalStatus = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency, Close[0]) + SystemPerformance.AllTrades.TradesPerformance.NetProfit ;
-				plUnrealized = Position.GetUnrealizedProfitLoss(PerformanceUnit.Currency, Close[0]);
-				log("Real Time Trades LosingTrades: " + SystemPerformance.RealTimeTrades.LosingTrades.TradesCount  );
-				log("Current Strategy profit: " + plTotalStatus);
-				log("Open Position: " + plUnrealized);
-				log("Position.AveragePrice: "+ Position.AveragePrice);
+			
+			if((plTotalStatus > -4000.0) && (plUnrealized > -3000.0))
+				order(this.GetType().Name);
+			
+	
 				
-					
-				
-				if((plTotalStatus > -100.0) && (plUnrealized > -100.0))
-					order(this.GetType().Name);
-				
-				if((plTotalStatus < -100.0) || (plUnrealized < -100.0))
-					log("Test");
-					//ExitLong();
-					
-				
-				// Resets the stop loss to the original value when all positions are closed
-				if (Position.MarketPosition == MarketPosition.Flat)
-				{
-					//SetTrailStop(CalculationMode.Ticks,40);
-				}
-				
-				// If a long position is open, allow for stop loss modification to breakeven
-				if (Position.MarketPosition == MarketPosition.Long)
-				{
-					// Once the bid price is greater than entry price+10 ticks, set stop loss to breakeven
-					if (GetCurrentBid(0) >= Position.AveragePrice + 8 * TickSize && Position.Quantity >= 2){
-				
-						log("Selling "+ (Position.Quantity -1) + " share at: " + Position.AveragePrice.ToString());
-						ExitLongStopLimit(1,GetCurrentBid(0),GetCurrentBid(0));
-						
-					}
-				}
-			}
-			catch (Exception e)
+			
+			// Resets the stop loss to the original value when all positions are closed
+			if (Position.MarketPosition == MarketPosition.Flat)
 			{
-				// In case the indicator has already been Terminated, you can safely ignore errors
-				if (State >= State.Terminated)
-					return;
-
-				/* With our caught exception we are able to generate log entries that go to the Control Center logs and also print more detailed information
-				about the error to the Output Window. */
-				
-				// Submits an entry into the Control Center logs to inform the user of an error				
-				log("SampleTryCatch Error: Please check your  errors.");
-				
-				// Prints the caught exception in the Output Window
-				log(Time[0] + " " + e.ToString());
-				CloseStrategy("Close Strategy");
+				//SetTrailStop("Long 1 Runner",CalculationMode.Ticks,200,false);
+			}
+			
+			// If a long position is open, allow for stop loss modification to breakeven
+			if (Position.MarketPosition == MarketPosition.Long)
+			{
+				// Once the bid price is greater than entry price+10 ticks, set stop loss to breakeven
+				if (GetCurrentBid(0) >= Position.AveragePrice + 12 * TickSize && Position.Quantity >= 2){
+			
+					log("Selling "+ (Position.Quantity -1) + " share at: " + Position.AveragePrice.ToString());
+					ExitLongStopLimit(1,GetCurrentBid(0),GetCurrentBid(0));
+				}
+				if (GetCurrentBid(0) >= Position.AveragePrice + 80 * TickSize && Position.Quantity == 1){
+					ExitLongStopLimit(1,GetCurrentBid(0),GetCurrentBid(0));
+				}
+				if((plTotalStatus < -500.0) || (plUnrealized < -250.0)){
+				   log("Exit On: " + plTotalStatus + plUnrealized );
+				   //ExitLong();
+				}
 			}
 		}
 		
@@ -170,13 +159,15 @@ namespace NinjaTrader.NinjaScript.Strategies
 					    // Only enter if at least 10 bars has passed since our last entry
     					//if ((BarsSinceEntryExecution() > 2 || BarsSinceEntryExecution() == -1))
 						if (Position.MarketPosition == MarketPosition.Long)
-        					EnterLongLimit(2,Position.AveragePrice - 32 * TickSize,"Long Market 1ap");
+        					EnterLongLimit(2,Position.AveragePrice - 42 * TickSize,"Long Limit 1ap");
 
 						// Only enter if at least 10 bars has passed since our last entry
     					//if ((BarsSinceEntryExecution() > 4 || BarsSinceEntryExecution() == -1))
 						if (Position.MarketPosition == MarketPosition.Long)
-        					EnterLongLimit(3,Position.AveragePrice - 46 * TickSize,"Long Market 2ap");
+        					EnterLongLimit(3,Position.AveragePrice - 160 * TickSize,"Long Limit 2ap");
 						
+						if (Position.MarketPosition == MarketPosition.Long)
+        					EnterLongLimit(3,Position.AveragePrice - 800 * TickSize,"Long Limit 3ap");
 				}	
 			}
 			if(Instrument.FullName.ToString().Contains("ES")){
@@ -252,7 +243,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 				ExitLong(Position.Quantity);
 			}
 		}		
-		
 		
 		private void log(string message)
 		{
