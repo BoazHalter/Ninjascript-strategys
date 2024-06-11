@@ -34,8 +34,9 @@ namespace NinjaTrader.NinjaScript.Strategies
         private SMA smaSlow;
 
         // New York trading hours
-        private readonly TimeSpan startTime = new TimeSpan(8, 0, 0);
-        private readonly TimeSpan endTime = new TimeSpan(20, 0, 0);
+        private readonly TimeSpan startTime = new TimeSpan(9, 30, 0);
+        private readonly TimeSpan endTime = new TimeSpan(16, 0, 0);
+		private DynamicSRLines dynamicSRLines;
 
         protected override void OnStateChange()
         {
@@ -46,7 +47,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Fast = 10;
                 Slow = 100;
                 ProfitTargetPoints = 220; // Default profit target set to 75 points
-                StopLossPoints = 120;     // Default stop loss set to 75 points
+                StopLossPoints = 40;     // Default stop loss set to 75 points
                 IsInstantiatedOnEachOptimizationIteration = false;
             }
             else if (State == State.Configure)
@@ -61,22 +62,32 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 smaFast = SMA(Fast);
                 smaSlow = SMA(Slow);
+				dynamicSRLines = DynamicSRLines(5, 200, 10, 2, 3, false, Brushes.Blue, Brushes.Red);
 
                 smaFast.Plots[0].Brush = Brushes.Goldenrod;
                 smaSlow.Plots[0].Brush = Brushes.SeaGreen;
 
                 AddChartIndicator(smaFast);
                 AddChartIndicator(smaSlow);
+				AddChartIndicator(dynamicSRLines);
             }
         }
 
         protected override void OnBarUpdate()
         {
-            if (CurrentBar < BarsRequiredToTrade)
+			
+            if (State == State.Historical)
+    		  return;
+			
+			if (CurrentBar < BarsRequiredToTrade)
             {
                 Print("CurrentBar < BarsRequiredToTrade");
                 return;
             }
+			
+		
+			double value = VOL()[0];
+			Print("The current VOL value is " + value.ToString());
 
             // Convert the current bar time to New York time
             DateTime barTime = Time[0];
@@ -93,11 +104,17 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             Print(string.Format("Current time {0} is within trading hours {1} - {2}", currentTime, startTime, endTime));
             Print(string.Format("Fast SMA: {0}, Slow SMA: {1}", smaFast[0], smaSlow[0]));
+			
+			// Use DynamicSRLines values in your trading logic
+            double resistanceLevel = dynamicSRLines.ZoneTickSize; // Example: replace 'Resistance' with actual property if available
+            double supportLevel = dynamicSRLines.PivotStrength; // Example: replace 'Support' with actual property if available
+
+            Print(string.Format("Resistance Level: {0}, Support Level: {1}", resistanceLevel, supportLevel));
 
             if (CrossAbove(smaFast, smaSlow, 1))
             {
                 Print("CrossAbove detected: Entering Long");
-                EnterLong(1);
+                EnterLong(3);
 				
             }
 			if (Position.MarketPosition  == MarketPosition.Long){						
@@ -113,7 +130,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             else if (CrossBelow(smaFast, smaSlow, 1))
             {
                 Print("CrossBelow detected: Entering Short");
-                EnterShort(1);
+                EnterShort(3);
 						
             }
 			if (Position.MarketPosition  == MarketPosition.Short)
