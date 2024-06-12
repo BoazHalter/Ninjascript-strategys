@@ -41,14 +41,18 @@ namespace NinjaTrader.NinjaScript.Strategies
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
-            {
+            {	
                 Description = "MovingAverageStrategy";
                 Name = "MovingAverageStrategy";
-                Fast = 10;
+				EntryHandling = EntryHandling.UniqueEntries;	
+                Calculate = Calculate.OnEachTick;
+				Fast = 10;
                 Slow = 100;
                 ProfitTargetPoints = 220; // Default profit target set to 75 points
                 StopLossPoints = 40;     // Default stop loss set to 75 points
                 IsInstantiatedOnEachOptimizationIteration = false;
+				PartialProfitTicks = 40;
+				StopTargetHandling = StopTargetHandling.ByStrategyPosition;
             }
             else if (State == State.Configure)
             {
@@ -122,7 +126,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 				EnterLongLimit(3,Position.AveragePrice - 15 * TickSize,"Long 3 Runner");
 			}
 			if (Position.MarketPosition  == MarketPosition.Long){
-				if(Close[0] > Position.AveragePrice && GetCurrentBid(0) > Position.AveragePrice + 10 * TickSize && Position.Quantity >= 3 ){
+				if(Close[0] > Position.AveragePrice && GetCurrentBid(0) > Position.AveragePrice + PartialProfitTicks * TickSize && Position.Quantity >= 3 ){
 					ExitLong(2);
 				}
 			}
@@ -142,7 +146,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 			}
 			if (Position.MarketPosition  == MarketPosition.Short && Position.Quantity >= 3)
 			{
-				if(Close[0] < Position.AveragePrice  && GetCurrentAsk(0) < Position.AveragePrice - 20 * TickSize ){
+				if(Close[0] < Position.AveragePrice  && GetCurrentAsk(0) < Position.AveragePrice - PartialProfitTicks * TickSize ){
 					ExitShort(2);
 				}
 			}						
@@ -164,6 +168,10 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Range(1, int.MaxValue), NinjaScriptProperty]
         [Display(ResourceType = typeof(Custom.Resource), Name = "StopLossPoints", GroupName = "NinjaScriptStrategyParameters", Order = 3)]
         public int StopLossPoints { get; set; }
+		
+		[Range(1, int.MaxValue), NinjaScriptProperty]
+        [Display(ResourceType = typeof(Custom.Resource), Name = "PartialProfitTicks", GroupName = "NinjaScriptStrategyParameters", Order = 4)]
+        public int PartialProfitTicks { get; set; }
         #endregion
     }
 }
