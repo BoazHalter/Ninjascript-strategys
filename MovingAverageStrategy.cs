@@ -51,7 +51,6 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Calculate = Calculate.OnEachTick;
 				Fast = 10;
                 Slow = 100;
-				//550
                 ProfitTargetPoints = 550; // Default profit target set to 75 points
                 StopLossPoints = 81;     // Default stop loss set to 75 points
                 IsInstantiatedOnEachOptimizationIteration = true;
@@ -59,31 +58,17 @@ namespace NinjaTrader.NinjaScript.Strategies
 				SecondPartialProfitTicks = 50;
 				StopTargetHandling = StopTargetHandling.ByStrategyPosition;
 				RealtimeErrorHandling = RealtimeErrorHandling.IgnoreAllErrors;
-//				firstProfitRange = 30;
-//				secondProfitRange = 30;
-//				thierdProfitRange = 30;
-//				fourthProfitRange = 30;
             }
             else if (State == State.Configure)
             {
 				AddDataSeries(Data.BarsPeriodType.Minute, 5);
-                // Set the profit target
-                //SetProfitTarget(CalculationMode.Ticks, ProfitTargetPoints);
-                //SetProfitTarget("Long 2 Runner",CalculationMode.Ticks,PartialProfitTicks);
-				
-                // Set the stop loss
-                //SetStopLoss(CalculationMode.Ticks, StopLossPoints);
-                //SetTrailStop(CalculationMode.Ticks, StopLossPoints);
-				
             }
             else if (State == State.DataLoaded)
             {
                 smaFast = SMA(Fast);
                 smaSlow = SMA(Slow);
 				
-				
 				dynamicSRLines = DynamicSRLines(5, 200, 10, 2, 3, false, Brushes.Blue, Brushes.Red);
-
                 smaFast.Plots[0].Brush = Brushes.Goldenrod;
                 smaSlow.Plots[0].Brush = Brushes.SeaGreen;
 
@@ -95,7 +80,6 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         protected override void OnBarUpdate()
         {
-			
             if (State == State.Historical)
     		  return;
 			
@@ -105,11 +89,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return;
             }
 			
-			
 			double value = VOL()[0];
 			double valueRIND = RIND(9, 36)[5];
-			//Print("The current VOL value is " + value.ToString());
-
+			
             // Convert the current bar time to New York time
             DateTime barTime = Time[0];
             TimeZoneInfo nyTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
@@ -122,135 +104,85 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Print(string.Format("Current time {0} is outside trading hours {1} - {2}", currentTime, startTime, endTime));
                 return;
             }
-
-            //Print(string.Format("Current time {0} is within trading hours {1} - {2}", currentTime, startTime, endTime));
-            //Print(string.Format("Fast SMA: {0}, Slow SMA: {1}", smaFast[0], smaSlow[0]));
-			
-			// Use DynamicSRLines values in your trading logic
-
-			Print("RIND value of 5 bars ago is " + valueRIND.ToString());
-			Print("Real Time Trades LosingTrades: " + SystemPerformance.RealTimeTrades.LosingTrades.TradesCount );
-			Print("Profit factor is: " + SystemPerformance.AllTrades.TradesPerformance.ProfitFactor);
-				if(SystemPerformance.AllTrades.TradesPerformance.ProfitFactor < 1.2){
-					smaFast = SMA(BarsArray[1],Fast);
-                	smaSlow = SMA(BarsArray[1],Slow);
-				}
-            //Print(string.Format("Resistance Level: {0}, Support Level: {1}", resistanceLevel, supportLevel));
+			if(SystemPerformance.AllTrades.TradesPerformance.ProfitFactor < 1){
+				smaFast = SMA(BarsArray[1],Fast);
+               	smaSlow = SMA(BarsArray[1],Slow);
+			}
 			if (Position.MarketPosition == MarketPosition.Flat)
 			{
-					//SetStopLoss(CalculationMode.Ticks, StopLossPoints);
+			}
+            if (CrossAbove(smaFast, smaSlow, 1))
+            {					
+                Print("CrossAbove detected: Entering Long");
+                Print("Real Time Trades LosingTrades: " + SystemPerformance.RealTimeTrades.LosingTrades.TradesCount );
+				Print("Profit factor is: " + SystemPerformance.AllTrades.TradesPerformance.ProfitFactor);
+				EnterLong(3,"Long 1 Runner");
+            }
+			else if (CrossBelow(smaFast, smaSlow, 1))
+            {	
+                Print("CrossBelow detected: Entering Short");
+				Print("Real Time Trades LosingTrades: " + SystemPerformance.RealTimeTrades.LosingTrades.TradesCount );
+				Print("Profit factor is: " + SystemPerformance.AllTrades.TradesPerformance.ProfitFactor);
+                EnterShort(3,"Short 1 Runner");
 			}
 			
-			
-	            if (CrossAbove(smaFast, smaSlow, 1))
-	            {					
-	                Print("CrossAbove detected: Entering Long");
-	                EnterLong(3,"Long 1 Runner");
-	            }
-				else if (CrossBelow(smaFast, smaSlow, 1))
-	            {	
-	                Print("CrossBelow detected: Entering Short");
-	                EnterShort(3,"Short 1 Runner");
-				}
+			if (Position.MarketPosition == MarketPosition.Long)
+			{
 				
-				if (Position.MarketPosition == MarketPosition.Long)
-				{
-					
-//					if(Close[0] <= Position.AveragePrice + 20 * TickSize ){
-//						EnterLongLimit(1,Position.AveragePrice + 20 * TickSize,"Long 2 Runner");
-//					}
-//					if(Close[0] <= Position.AveragePrice + 40 * TickSize ){
-//						EnterLongLimit(1,Position.AveragePrice + 40 * TickSize,"Long 3 Runner");
-//					}
-
-					if (Close[0] < Position.AveragePrice - StopLossPoints * TickSize)
-				    {
-				        ExitLong();
-				        Print("Stop loss");
-				    }
-				    if (Close[0] > Position.AveragePrice + 30 * TickSize && 
-						Close[0] < Position.AveragePrice + 70 * TickSize && Position.Quantity >= 3 )
-				    {
-				        ExitLongLimit(1,Position.AveragePrice + 32 * TickSize);
-				        Print("First Long Partial");
-				    }
-				    if (Close[0] > Position.AveragePrice + 70 * TickSize && 
-						Close[0] < Position.AveragePrice + 100 * TickSize && Position.Quantity >= 2)
-				    {
-						ExitLongLimit(1,Position.AveragePrice + 72 * TickSize);
-				        Print("Second Long Partial");
-				    }
-					if (Close[0] > Position.AveragePrice + 100 * TickSize && 
-						Close[0] < Position.AveragePrice + 130 * TickSize)
-				    {
-						ExitLongLimit(1,Position.AveragePrice + 102 * TickSize);
-				        //SetStopLoss(CalculationMode.Price, Position.AveragePrice + 30);						
-				        Print("Second Long Partial");
-				    }
-				}
-
-
-	            
-				if (Position.MarketPosition == MarketPosition.Short)
-				{
-					
-//					if (Close[0] > Position.AveragePrice - 20 * TickSize){
-//						EnterShortLimit(1,Position.AveragePrice - 20 * TickSize,"Short 2 Runner");					
-//					}
-//					if (Close[0] > Position.AveragePrice - 40 * TickSize){
-//						EnterShortLimit(1,Position.AveragePrice - 40 * TickSize,"Short 3 Runner");						
-//					}
-					
-					if (Close[0] > Position.AveragePrice + StopLossPoints  * TickSize)
-				    {
-				        ExitShort();
-				        Print("stop loss");
-				    }
-				    if (Close[0] < Position.AveragePrice - 30 * TickSize && 
-						Close[0] > Position.AveragePrice - 70 * TickSize  && Position.Quantity >= 3)
-				    {
-				        ExitShortLimit(1,Position.AveragePrice - 32 * TickSize);
-				        Print("First Short stop loss");
-				    }
-				    if (Close[0] < Position.AveragePrice - 70 * TickSize && 
-						Close[0] > Position.AveragePrice - 100 * TickSize && Position.Quantity >= 2)
-				    {
-				        ExitShortLimit(1,Position.AveragePrice - 72 * TickSize);
-				        Print("Second Short stop loss");
-				    }
-					if (Close[0] < Position.AveragePrice - 100 * TickSize && 
-						Close[0] > Position.AveragePrice - 130 * TickSize)
-				    {
-				        ExitShortLimit(1,Position.AveragePrice - 102 * TickSize);
-				        Print("Thierd Short stop loss");
-				    }
-				}
-		
-			
-        }
+				if (Close[0] < Position.AveragePrice - StopLossPoints * TickSize)
+			    {
+			        ExitLong();
+			        Print("Stop loss");
+			    }
+			    if (Close[0] > Position.AveragePrice + 30 * TickSize && 
+					Close[0] < Position.AveragePrice + 70 * TickSize && Position.Quantity >= 3 )
+			    {
+			        ExitLongLimit(1,Position.AveragePrice + 32 * TickSize);
+			        Print("First Long Partial");
+			    }
+			    if (Close[0] > Position.AveragePrice + 70 * TickSize && 
+					Close[0] < Position.AveragePrice + 100 * TickSize && Position.Quantity >= 2)
+			    {
+					ExitLongLimit(1,Position.AveragePrice + 72 * TickSize);
+			        Print("Second Long Partial");
+			    }
+				if (Close[0] > Position.AveragePrice + 100 * TickSize && 
+					Close[0] < Position.AveragePrice + 130 * TickSize)
+			    {
+					ExitLongLimit(1,Position.AveragePrice + 102 * TickSize);
+			        Print("Second Long Partial");
+			    }
+			}
+			if (Position.MarketPosition == MarketPosition.Short)
+			{					
+				if (Close[0] > Position.AveragePrice + StopLossPoints  * TickSize)
+			    {
+			        ExitShort();
+			        Print("stop loss");
+			    }
+			    if (Close[0] < Position.AveragePrice - 30 * TickSize && 
+					Close[0] > Position.AveragePrice - 70 * TickSize  && Position.Quantity >= 3)
+			    {
+			        ExitShortLimit(1,Position.AveragePrice - 32 * TickSize);
+			        Print("First Short stop loss");
+			    }
+			    if (Close[0] < Position.AveragePrice - 70 * TickSize && 
+					Close[0] > Position.AveragePrice - 100 * TickSize && Position.Quantity >= 2)
+			    {
+			        ExitShortLimit(1,Position.AveragePrice - 72 * TickSize);
+			        Print("Second Short stop loss");
+			    }
+				if (Close[0] < Position.AveragePrice - 100 * TickSize && 
+					Close[0] > Position.AveragePrice - 130 * TickSize)
+			    {
+			        ExitShortLimit(1,Position.AveragePrice - 102 * TickSize);
+			        Print("Thierd Short stop loss");
+			    }
+			}
+		}
 
         #region Properties
-		
-//		[Range(10, 40), NinjaScriptProperty]
-//        [Display(ResourceType = typeof(Custom.Resource), Name = "firstProfitRange", GroupName = "NinjaScriptStrategyParameters", Order = 6)]
-//		public int firstProfitRange
-//		{ get; set; }
-		
-//		[Range(40, 70), NinjaScriptProperty]
-//        [Display(ResourceType = typeof(Custom.Resource), Name = "secondProfitRange", GroupName = "NinjaScriptStrategyParameters", Order = 7)]
-//		public int secondProfitRange
-//		{ get; set; }
-		
-//		[Range(70, 100),NinjaScriptProperty]
-//        [Display(ResourceType = typeof(Custom.Resource), Name = "thierdProfitRange", GroupName = "NinjaScriptStrategyParameters", Order = 8)]
-//		public int thierdProfitRange 
-//		{ get; set; }
-		
-//		[Range(100, 130),NinjaScriptProperty]
-//        [Display(ResourceType = typeof(Custom.Resource), Name = "fourthProfitRange", GroupName = "NinjaScriptStrategyParameters", Order = 8)]
-//		public int fourthProfitRange
-//		{ get; set; }
-		
+				
         [Range(1, int.MaxValue), NinjaScriptProperty]
         [Display(ResourceType = typeof(Custom.Resource), Name = "Fast", GroupName = "NinjaScriptStrategyParameters", Order = 0)]
         public int Fast { get; set; }
@@ -276,7 +208,5 @@ namespace NinjaTrader.NinjaScript.Strategies
         public int SecondPartialProfitTicks { get; set; }
   
 		#endregion
-		
-		
     }
 }
