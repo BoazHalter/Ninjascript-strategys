@@ -1,163 +1,110 @@
-#region Using declarations
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Xml.Serialization;
-using NinjaTrader.Cbi;
-using NinjaTrader.Gui;
-using NinjaTrader.Gui.Chart;
-using NinjaTrader.Gui.SuperDom;
-using NinjaTrader.Gui.Tools;
-using NinjaTrader.Data;
-using NinjaTrader.NinjaScript;
-using NinjaTrader.Core.FloatingPoint;
-using NinjaTrader.NinjaScript.Indicators;
-using NinjaTrader.NinjaScript.DrawingTools;
-using NinjaTrader.NinjaScript.Strategies;
-#endregion
+private int lastTradeBar = -100; 
+private int cooldownBars = 10;   
+private int longSignalCount = 0;  // Counter for long signals
+private int shortSignalCount = 0; // Counter for short signals
+private int requiredSignals = 3;  // Number of signals required before execution
 
-namespace NinjaTrader.NinjaScript.Strategies.Dev
+protected override void OnBarUpdate()
 {
-    public class RegressionChannelStrategy : Strategy
+    loggingId = Account.Name + " " + Instrument.FullName;
+    unrealizedProfitLoss = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar);
+
+    if (CurrentBar < Period) return; // Ensure enough bars are available
+
+    // Enforce cooldown: No new trades if within cooldown period
+    if ((CurrentBar - lastTradeBar) < cooldownBars) return;
+
+    double lower = regressionChannel.Lower[0];
+    double upper = regressionChannel.Upper[0];
+    double middle = regressionChannel.Middle[0];
+
+    // Improved slope calculation (5-bar lookback)
+    if (CurrentBar > Period)
     {
-        private NinjaTrader.NinjaScript.Indicators.RegressionChannel regressionChannel;
-        private double unrealizedProfitLoss;
-        private string loggingId;
-        private double slope; // Added slope variable
-		private int sloss = 70;
-		private int lastTradeBar = -100; // Initialized far in the past
-		private int cooldownBars = 10;   // Number of bars to wait before the next trade
+        slope = (regressionChannel.Middle[0] - regressionChannel.Middle[5]) / 5;
+    }
 
-        [NinjaScriptProperty]
-        [Range(10, 500)]
-        [Display(Name = "Period", Order = 1, GroupName = "Parameters")]
-        public int Period { get; set; }
-
-        [NinjaScriptProperty]
-        [Range(1, 10)]
-        [Display(Name = "Width", Order = 2, GroupName = "Parameters")]
-        public double Width { get; set; }
-
-        protected override void OnStateChange()
+    // **Exit Logic (Stops and Take Profits)**
+    if (unrealizedProfitLoss >= 200)
+    {
+        if (Position.MarketPosition == MarketPosition.Long)
         {
-            if (State == State.SetDefaults)
+            ExitLong(1);
+        }
+        if (Position.MarketPosition == MarketPosition.Short)
+        {
+            ExitShort(1);
+        }
+        lastTradeBar = CurrentBar; 
+    }
+
+    // Exit long if price crosses below middle or upper band
+    if (Position.MarketPosition == MarketPosition.Long && 
+        (CrossBelow(Close, upper, 1) || CrossBelow(Close, middle, 1)))
+    {
+        ExitLong(1);
+        lastTradeBar = CurrentBar; 
+    }
+
+    // Exit short if price crosses above middle or lower band
+    if (Position.MarketPosition == MarketPosition.Short && 
+        (CrossAbove(Close, lower, 1) || CrossAbove(Close, middle, 1)))
+    {
+        ExitShort(1);
+        lastTradeBar = CurrentBar;
+    }
+
+    // **Entry Logic (Wait for 3 Signals Before Executing Trade)**
+
+    // **Long Signal Detection**
+    if (CrossAbove(Close, lower, 1) && slope >= -0.3) 
+    {
+        longSignalCount++;  // Increment long signal counter
+        Print($"Long Signal Count: {longSignalCount}");
+
+        if (longSignalCount >= requiredSignals) // Only enter on 3rd signal
+        {
+            if (Position.MarketPosition == MarketPosition.Short && unrealizedProfitLoss >= 100)
             {
-                Description = "Strategy that buys at the bottom of the Regression Channel and sells at the top.";
-                Name = "RegressionChannelStrategy";
-                Calculate = Calculate.OnBarClose;
-                EntriesPerDirection = 1;
-                DefaultQuantity = 1;
-				RealtimeErrorHandling = RealtimeErrorHandling.IgnoreAllErrors;
-                StopTargetHandling = StopTargetHandling.ByStrategyPosition;
-                IsExitOnSessionCloseStrategy = true;
-                ExitOnSessionCloseSeconds = 30;
-                IsFillLimitOnTouch = false;
-                Slippage = 1;
-                Period = 300;
-                Width = 4;
+                ExitShort(1);
             }
-			else if (State == State.Configure)
-			{
-				AddDataSeries(Instrument.FullName, Data.BarsPeriodType.Second, 2, Data.MarketDataType.Last);
-				SetTrailStop(CalculationMode.Ticks, sloss);
-			}			
-            else if (State == State.DataLoaded)
+            else
             {
-                regressionChannel = RegressionChannel(Period, Width);
+                EnterLong(3, "Long_Entry");
+                lastTradeBar = CurrentBar; 
+                longSignalCount = 0;  // Reset counter after execution
+                Print($"{loggingId} Executed Long Trade on 3rd Signal");
             }
         }
+    }
+    else
+    {
+        longSignalCount = 0;  // Reset if condition is not met consecutively
+    }
 
-        protected override void OnBarUpdate()
+    // **Short Signal Detection**
+    if (CrossBelow(Close, upper, 1) && slope <= 0.3) 
+    {
+        shortSignalCount++;  // Increment short signal counter
+        Print($"Short Signal Count: {shortSignalCount}");
+
+        if (shortSignalCount >= requiredSignals) // Only enter on 3rd signal
         {
-            loggingId = Account.Name + " " + Instrument.FullName;
-            
-            unrealizedProfitLoss = Account.Get(AccountItem.UnrealizedProfitLoss, Currency.UsDollar);
-			
-			if (CurrentBar < Period || (CurrentBar - lastTradeBar) < cooldownBars) return; // Skip trade execution if cooldown is active
-            
-            double lower = regressionChannel.Lower[0];
-            double upper = regressionChannel.Upper[0];
-            double middle = regressionChannel.Middle[0];
-			
-			
-            // Calculate slope
-            if (BarsInProgress == 0){
-				if (CurrentBar > Period)
-	            {
-					slope = (regressionChannel.Middle[0] - regressionChannel.Middle[1]) / Period;
-	            }
-			}
-			if (BarsInProgress == 1){
-				
-	            if (unrealizedProfitLoss >= 200)
-                {
-					if (Position.MarketPosition == MarketPosition.Long)
-	                {
-	                    ExitLong(1);
-						SetTrailStop(CalculationMode.Ticks, sloss);
-	                }
-	                if (Position.MarketPosition == MarketPosition.Short)
-	                {
-	                    ExitShort(1);
-						SetTrailStop(CalculationMode.Ticks, sloss);
-	                }
-				}
-
-			    // Exit long at middle or upper band
-	            if (Position.MarketPosition == MarketPosition.Long && CrossBelow(Close, upper, 1)||CrossBelow(Close, middle, 1))
-	            {
-	                ExitLong(1);
-					SetTrailStop(CalculationMode.Ticks, sloss);
-					//SetProfitTarget("L2",CalculationMode.Currency, 350);
-	            }
-	
-	            // Exit short at middle or lower band
-	            if (Position.MarketPosition == MarketPosition.Short && CrossAbove(Close, lower, 1)||CrossAbove(Close, middle, 1))
-	            {
-	                ExitShort(1);
-					SetTrailStop(CalculationMode.Ticks, sloss);
-					//SetProfitTarget("S2",CalculationMode.Currency, 350);
-					
-	            }
-				// Buy when price crosses below the lower band (only if slope is flat or positive)
-	            if (CrossAbove(Close, lower, 1) && slope >= -0.3) // Allowing slight tolerance
-	            {
-					if(Position.MarketPosition == MarketPosition.Short && unrealizedProfitLoss >= 100 ){
-						ExitShort(1);
-						SetTrailStop(CalculationMode.Ticks, sloss);
-					} else
-					{
-	                	EnterLong(3,"Long_Entry");
-   					    lastTradeBar = CurrentBar; // Update last trade time
-						Print(string.Format("{0} slope: {1} lastTradeBar: {2}", loggingId, slope,lastTradeBar));
-
-					}
-	            }
-	
-	            // Sell when price crosses above the upper band (only if slope is flat or negative)
-	            if (CrossBelow(Close, upper, 1) && slope <= 0.3)
-	            {
-					if(Position.MarketPosition == MarketPosition.Long && unrealizedProfitLoss >= 100 ){
-						ExitLong(1);
-						SetTrailStop(CalculationMode.Ticks, sloss);
-					} 
-					else
-					{
-     					EnterShort(3,"Short_Entry");
-					    lastTradeBar = CurrentBar; // Update last trade time
-						Print(string.Format("{0} slope: {1} lastTradeBar: {2}", loggingId, slope,lastTradeBar));
-
-					}
-	            }
-	
-			}
+            if (Position.MarketPosition == MarketPosition.Long && unrealizedProfitLoss >= 100)
+            {
+                ExitLong(1);
+            }
+            else
+            {
+                EnterShort(3, "Short_Entry");
+                lastTradeBar = CurrentBar; 
+                shortSignalCount = 0;  // Reset counter after execution
+                Print($"{loggingId} Executed Short Trade on 3rd Signal");
+            }
         }
+    }
+    else
+    {
+        shortSignalCount = 0;  // Reset if condition is not met consecutively
     }
 }
