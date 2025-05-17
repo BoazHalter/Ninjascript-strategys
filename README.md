@@ -1,7 +1,9 @@
 # Ninjascript-strategys
 A repository for ninjascript strategy's 
 
+```
 
+```
 https://bulenox.com/member/aff/go/boazhalter
 
 | Coupon  | Product(s) | Discount | Conditions/Commissions | Start | End | Used |
